@@ -43,7 +43,7 @@ const FacebookActionCreators = {
                     data: response
                 })
             }
-        }, {scope: 'user_posts, user_photos, user_friends'});
+        }, {scope: 'public_profile, user_posts, user_photos, user_friends'});
     },
 
     logout: () => {
@@ -76,6 +76,7 @@ const FacebookActionCreators = {
             data: null
         })
         
+        //This does not always return people tagged in a post
         window.FB.api(`/${userId}?fields=feed.limit(250){likes.limit(1).summary(true),with_tags,message_tags,created_time}`, (response) => {
             console.log(response);
             FacebookDispatcher.dispatch({
@@ -92,7 +93,8 @@ const FacebookActionCreators = {
             data: null
         })
         
-        window.FB.api(`/${userId}?fields=photos.limit(250){likes.limit(1).summary(true)}`, (response) => {
+        //window.FB.api(`/${userId}?fields=photos.limit(250){likes.limit(1).summary(true),tags,album,created_time}`, (response) => {
+        window.FB.api(`/${userId}/photos?fields=likes.limit(1).summary(true),tags,album,created_time`, (response) => {
             console.log(response);
             FacebookDispatcher.dispatch({
                 actionType: Constants.FACEBOOK_RECEIVED_PHOTOS,

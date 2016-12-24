@@ -20,6 +20,9 @@ class FacebookStore extends EventEmitter {
 
         //Create map of friends -> # of likes
         this.friendsLikes = new Map();
+
+        //Decide how many months back to go
+        this.periodicalData = [];
     }
 
     setFacebookAuthData(data) {
@@ -81,10 +84,62 @@ class FacebookStore extends EventEmitter {
         return this.timePlotSeriesData;
     }
 
-    //TODO: for consistency, move the return calculation into the set method, then return a variable
     get facebookPosts() {
 
         return this.totalPosts;
+    }
+
+    calculateTagLikes(currentPost, likesObj) {
+
+        var tags = currentPost.with_tags;
+        if(tags) {
+
+            for(var j = 0; j < tags.data.length; j ++) {
+
+                if(tags.data[j].name.localeCompare("Katie Lewis")==0) {
+                        console.log(currentPost.created_time);
+                }
+                
+                if(this.friendsLikes[tags.data[j].name]) {
+
+                    this.friendsLikes[tags.data[j].name].posts++;
+                    this.friendsLikes[tags.data[j].name].likes+=likesObj.summary.total_count;
+                } else {
+                    this.friendsLikes[tags.data[j].name] = {
+                        posts: 1,
+                        likes: likesObj.summary.total_count
+                    }
+                }
+                
+            }
+        }
+    }
+
+    addToTimePlotSeries(timeOfDay, likesObj) {
+
+        var t = Date.parse("1-1-1 " + timeOfDay); 
+        
+        //Need to subtract more here depending on the users time zone
+        //Make time zone static for now (central or pacific time)
+        var timeToSubtract = Date.parse("1-1-1 " +
+                                         "0" + (new Date()).getTimezoneOffset()/60
+                                          +":00:00");
+        var absTime = t-timeToSubtract;
+
+        if(likesObj) { 
+            this.timePlotSeriesData.push([absTime,likesObj.summary.total_count]);
+            this.totalPostLikes+=likesObj.summary.total_count;
+        }
+        else this.timePlotSeriesData.push([absTime, 0]);
+    }
+
+    extractPeriodicalData(date, likesObj) {
+
+        this.periodicalData.push({
+
+            date:date,
+            likes:likesObj.summary.total_count
+        });
     }
 
     setFacebookPostsData(type, data) {
@@ -100,52 +155,23 @@ class FacebookStore extends EventEmitter {
                 var currentPost = data.feed.data[i];
 
                 var likesObj = currentPost.likes;
-                var timeObj = currentPost.created_time;
-                
-                var dateTime = timeObj.split("T")[1].substring(0, 8); 
-                var t = Date.parse("1-1-1 " + dateTime); 
-                
-                //Need to subtract more here depending on the users time zone
-                //Make time zone static for now (central or pacific time)
-                var timeToSubtract = Date.parse("1-1-1 " +
-                                                 "0" + (new Date()).getTimezoneOffset()/60
-                                                  +":00:00");
-                var absTime = t-timeToSubtract;
+                var timeObj = currentPost.created_time.split("T");
 
-                if(likesObj) { 
-                    series.push([absTime,likesObj.summary.total_count]);
-                    totalLikes+=likesObj.summary.total_count;
-                }
-                else series.push([absTime, 0]);
+                var timeOfDay = timeObj[1].substring(0, 8);
+                var date = timeObj[0]; 
 
-                
-                var tags = currentPost.with_tags;
-                if(tags) {
-
-                    for(var j = 0; j < tags.data.length; j ++) {
-
-                        
-                        if(this.friendsLikes[tags.data[j].name]) {
-
-                            this.friendsLikes[tags.data[j].name].posts++;
-                            this.friendsLikes[tags.data[j].name].likes+=likesObj.summary.total_count;
-                        } else {
-                            this.friendsLikes[tags.data[j].name] = {
-                                posts: 1,
-                                likes: likesObj.summary.total_count
-                            }
-                        }
-                        
-                    }
-                }        
+                //Extract likes per month, year, week, day from current post
+                this.extractPeriodicalData(date, likesObj);
+                //Add current post to time plot series data
+                this.addToTimePlotSeries(timeOfDay, likesObj);
+                //Find friends tagged in current post and increment their posts count and likes count
+                this.calculateTagLikes(currentPost, likesObj);
+                      
             }
-            console.log("Printing friendsLikes:");
-            console.log(this.friendsLikes);
-
-            //console.log(series);
-            this.timePlotSeriesData = series;
-            this.totalPostLikes = totalLikes;
             this.totalPosts = data.feed.data.length;
+
+            console.log(this.periodicalData);
+            console.log(this.friendsLikes);
         } else {
             this.facebookPostsData = {};
 
@@ -171,11 +197,11 @@ class FacebookStore extends EventEmitter {
         this.facebookPhotosStatus = type;
 
         if (data) {
-            this.facebookPhotosData = data
-            this.totalFriends = data.friends.summary.total_count;
+            this.facebookPhotosData = data;
+            
         } else {
             this.facebookPhotosData = {};
-            this.totalFriends = 0;
+            
         }
 
         this.emitChange();

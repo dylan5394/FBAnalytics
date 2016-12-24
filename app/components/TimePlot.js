@@ -23,8 +23,6 @@ var config = {
 		},
         startOnTick:false,
         endOnTick:false,
-        //min: Date.UTC(1970,1,1),
-        //max: Date.UTC(2016,12,14),
         minPadding: 0,
         labels: {
 

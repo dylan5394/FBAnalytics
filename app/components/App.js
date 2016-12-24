@@ -1,6 +1,7 @@
 var React = require('react');
 
 var TimePlot = require('./TimePlot');
+var PeriodicalLine = require('./PeriodicalLine');
 
 import FacebookActionCreators from '../actions/FacebookActionCreators';
 import FacebookStore from '../stores/FacebookStore';
@@ -67,6 +68,7 @@ var App = React.createClass({
                 facebookPictureUrl={this.state.facebookPictureUrl} />
           <TimePlot 
                 seriesData={this.state.timePlotSeriesData} />
+          <PeriodicalLine />
         </div>
 			);
 	 }

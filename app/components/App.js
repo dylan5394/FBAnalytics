@@ -28,7 +28,12 @@ var App = React.createClass({
 
             totalFacebookFriends: FacebookStore.facebookFriends,
 
-            timePlotSeriesData: FacebookStore.timePlotSeries
+            timePlotSeriesData: FacebookStore.timePlotSeries,
+
+            periodicalLineData: FacebookStore.periodicalLineData,
+
+            topFriendsAverage: FacebookStore.topFriendsAverage,
+            topFriendsTotal: FacebookStore.topFriendsTotal
         }
   },
 
@@ -68,8 +73,11 @@ var App = React.createClass({
                 facebookPictureUrl={this.state.facebookPictureUrl} />
           <TimePlot 
                 seriesData={this.state.timePlotSeriesData} />
-          <PeriodicalLine />
-          <TopFriends />
+          <PeriodicalLine 
+                seriesData={this.state.periodicalLineData} />
+          <TopFriends 
+                topFriendsAverage={this.state.topFriendsAverage}
+                topFriendsTotal={this.state.topFriendsTotal} />
         </div>
 			);
 	 }

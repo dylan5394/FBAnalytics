@@ -825,12 +825,18 @@
 	 * will remain to ensure logic does not differ in production.
 	 */
 
-	function invariant(condition, format, a, b, c, d, e, f) {
-	  if (process.env.NODE_ENV !== 'production') {
+	var validateFormat = function validateFormat(format) {};
+
+	if (process.env.NODE_ENV !== 'production') {
+	  validateFormat = function validateFormat(format) {
 	    if (format === undefined) {
 	      throw new Error('invariant requires an error message argument');
 	    }
-	  }
+	  };
+	}
+
+	function invariant(condition, format, a, b, c, d, e, f) {
+	  validateFormat(format);
 
 	  if (!condition) {
 	    var error;
@@ -21495,6 +21501,8 @@
 	var React = __webpack_require__(1);
 
 	var TimePlot = __webpack_require__(191);
+	var PeriodicalLine = __webpack_require__(194);
+	var TopFriends = __webpack_require__(195);
 
 	var App = React.createClass({
 	  displayName: 'App',
@@ -21513,7 +21521,13 @@
 
 	      facebookPhotos: _FacebookStore2.default.facebookPhotos,
 
-	      totalFacebookFriends: _FacebookStore2.default.facebookFriends
+	      totalFacebookFriends: _FacebookStore2.default.facebookFriends,
+
+	      timePlotSeriesData: _FacebookStore2.default.timePlotSeries,
+
+	      periodicalData: _FacebookStore2.default.periodicalData,
+
+	      friendsLikes: _FacebookStore2.default.friendsLikes
 	    };
 	  },
 
@@ -21544,11 +21558,10 @@
 	    return React.createElement(
 	      'div',
 	      null,
-	      !this.state.loggedIn ? React.createElement(_Login2.default, null) : null,
-	      this.state.loggedIn ? React.createElement(_Dashboard2.default, { userId: this.state.userId,
+	      !this.state.loggedIn ? React.createElement(_Login2.default, null) : React.createElement(_Dashboard2.default, { userId: this.state.userId,
 	        totalLikes: this.state.totalFacebookPostLikes,
 	        totalPosts: this.state.totalFacebookPosts,
-	        totalFriends: this.state.totalFacebookFriends }) : null,
+	        totalFriends: this.state.totalFacebookFriends }),
 	      React.createElement(
 	        'p',
 	        null,
@@ -21565,7 +21578,10 @@
 	      React.createElement(_FacebookPicture2.default, {
 	        facebookPictureStatus: this.state.facebookPictureStatus,
 	        facebookPictureUrl: this.state.facebookPictureUrl }),
-	      React.createElement(TimePlot, null)
+	      React.createElement(TimePlot, {
+	        seriesData: this.state.timePlotSeriesData }),
+	      React.createElement(PeriodicalLine, null),
+	      React.createElement(TopFriends, null)
 	    );
 	  }
 	});
@@ -21630,7 +21646,7 @@
 	                    data: response
 	                });
 	            }
-	        }, { scope: 'user_posts, user_photos, user_friends' });
+	        }, { scope: 'public_profile, user_posts, user_photos, user_friends' });
 	    },
 
 	    logout: function logout() {
@@ -21663,7 +21679,8 @@
 	            data: null
 	        });
 
-	        window.FB.api('/' + userId + '?fields=feed.limit(250){likes.limit(1).summary(true),created_time}', function (response) {
+	        //This does not always return people tagged in a post
+	        window.FB.api('/' + userId + '?fields=feed.limit(250){likes.limit(1).summary(true),with_tags,message_tags,created_time}', function (response) {
 	            console.log(response);
 	            _FacebookDispatcher2.default.dispatch({
 	                actionType: _Constants2.default.FACEBOOK_RECEIVED_POSTS,
@@ -21679,7 +21696,8 @@
 	            data: null
 	        });
 
-	        window.FB.api('/' + userId + '?fields=photos.limit(250){likes.limit(1).summary(true)}', function (response) {
+	        //window.FB.api(`/${userId}?fields=photos.limit(250){likes.limit(1).summary(true),tags,album,created_time}`, (response) => {
+	        window.FB.api('/' + userId + '/photos?fields=likes.limit(1).summary(true),tags,album,created_time', function (response) {
 	            console.log(response);
 	            _FacebookDispatcher2.default.dispatch({
 	                actionType: _Constants2.default.FACEBOOK_RECEIVED_PHOTOS,
@@ -22109,6 +22127,17 @@
 	        _this.facebookPostsData = {};
 	        _this.facebookPhotosData = {};
 	        _this.facebookFriendsData = {};
+
+	        _this.timePlotSeriesData = [];
+	        _this.totalPostLikes = 0;
+	        _this.totalPosts = 0;
+	        _this.totalFriends = 0;
+
+	        //Create map of friends -> # of likes
+	        _this.friendsLikes = new Map();
+
+	        //Decide how many months back to go
+	        _this.periodicalData = [];
 	        return _this;
 	    }
 
@@ -22131,29 +22160,95 @@
 
 	            this.emitChange();
 	        }
+	    }, {
+	        key: 'calculateTagLikes',
+	        value: function calculateTagLikes(currentPost, likesObj) {
 
-	        //TODO: Move for loop into the set method to optimize performance
+	            var tags = currentPost.with_tags;
+	            if (tags) {
 
+	                for (var j = 0; j < tags.data.length; j++) {
+
+	                    if (tags.data[j].name.localeCompare("Katie Lewis") == 0) {
+	                        console.log(currentPost.created_time);
+	                    }
+
+	                    if (this.friendsLikes[tags.data[j].name]) {
+
+	                        this.friendsLikes[tags.data[j].name].posts++;
+	                        this.friendsLikes[tags.data[j].name].likes += likesObj.summary.total_count;
+	                    } else {
+	                        this.friendsLikes[tags.data[j].name] = {
+	                            posts: 1,
+	                            likes: likesObj.summary.total_count
+	                        };
+	                    }
+	                }
+	            }
+	        }
+	    }, {
+	        key: 'addToTimePlotSeries',
+	        value: function addToTimePlotSeries(timeOfDay, likesObj) {
+
+	            var t = Date.parse("1-1-1 " + timeOfDay);
+
+	            //Need to subtract more here depending on the users time zone
+	            //Make time zone static for now (central or pacific time)
+	            var timeToSubtract = Date.parse("1-1-1 " + "0" + new Date().getTimezoneOffset() / 60 + ":00:00");
+	            var absTime = t - timeToSubtract;
+
+	            if (likesObj) {
+	                this.timePlotSeriesData.push([absTime, likesObj.summary.total_count]);
+	                this.totalPostLikes += likesObj.summary.total_count;
+	            } else this.timePlotSeriesData.push([absTime, 0]);
+	        }
+	    }, {
+	        key: 'extractPeriodicalData',
+	        value: function extractPeriodicalData(date, likesObj) {
+
+	            this.periodicalData.push({
+
+	                date: date,
+	                likes: likesObj.summary.total_count
+	            });
+	        }
 	    }, {
 	        key: 'setFacebookPostsData',
 	        value: function setFacebookPostsData(type, data) {
 	            this.facebookPostsStatus = type;
 
-	            //TODO: Create arrays with times of posts and number of likes per post --> [[likes, time],...]
 	            if (data) {
 	                this.facebookPostsData = data;
 
-	                /*TODO: Fix this up to accomplish the above ^^^
+	                var series = [];
 	                var totalLikes = 0;
-	                for(var i  = 0; i < this.facebookPostsData.feed.data.length; i ++) {
-	                     var likesObj = this.facebookPostsData.feed.data[i].likes;
-	                    var timeObj = this.facebookPostsData.feed.data[i].created_time;
-	                    if(currentObj) totalLikes+= currentObj.summary.total_count;
+	                for (var i = 0; i < data.feed.data.length; i++) {
+
+	                    var currentPost = data.feed.data[i];
+
+	                    var likesObj = currentPost.likes;
+	                    var timeObj = currentPost.created_time.split("T");
+
+	                    var timeOfDay = timeObj[1].substring(0, 8);
+	                    var date = timeObj[0];
+
+	                    //Extract likes per month, year, week, day from current post
+	                    this.extractPeriodicalData(date, likesObj);
+	                    //Add current post to time plot series data
+	                    this.addToTimePlotSeries(timeOfDay, likesObj);
+	                    //Find friends tagged in current post and increment their posts count and likes count
+	                    this.calculateTagLikes(currentPost, likesObj);
 	                }
-	                return totalLikes; 
-	                */
+	                this.totalPosts = data.feed.data.length;
+
+	                console.log(this.periodicalData);
+	                console.log(this.friendsLikes);
 	            } else {
 	                this.facebookPostsData = {};
+
+	                this.timePlotSeriesData = [];
+	                this.totalPostLikes = 0;
+	                this.totalPosts = 0;
 	            }
 
 	            this.emitChange();
@@ -22172,9 +22267,6 @@
 
 	            this.emitChange();
 	        }
-
-	        //TODO: Move calculation into set method
-
 	    }, {
 	        key: 'setFacebookFriendsData',
 	        value: function setFacebookFriendsData(type, data) {
@@ -22182,8 +22274,10 @@
 
 	            if (data) {
 	                this.facebookFriendsData = data;
+	                this.totalFriends = data.friends.summary.total_count;
 	            } else {
 	                this.facebookFriendsData = {};
+	                this.totalFriends = 0;
 	            }
 
 	            this.emitChange();
@@ -22243,30 +22337,31 @@
 	        key: 'facebookPostLikes',
 	        get: function get() {
 
-	            if (!this.facebookPostsData || !this.facebookPostsData.feed) {
-	                return 0;
-	            }
-	            //loop through each post and add up likes
-	            var totalLikes = 0;
-	            for (var i = 0; i < this.facebookPostsData.feed.data.length; i++) {
-
-	                var currentObj = this.facebookPostsData.feed.data[i].likes;
-	                if (currentObj) totalLikes += currentObj.summary.total_count;
-	            }
-	            return totalLikes;
+	            return this.totalPostLikes;
 	        }
+	    }, {
+	        key: 'timePlotSeries',
+	        get: function get() {
 
-	        //TODO: for consistency, move the return calculation into the set method, then return a variable
-
+	            return this.timePlotSeriesData;
+	        }
 	    }, {
 	        key: 'facebookPosts',
 	        get: function get() {
 
-	            if (!this.facebookPostsData || !this.facebookPostsData.feed) {
-	                return 0;
-	            }
+	            return this.totalPosts;
+	        }
+	    }, {
+	        key: 'friendsLikes',
+	        get: function get() {
 
-	            return this.facebookPostsData.feed.data.length;
+	            return this.friendsLikes;
+	        }
+	    }, {
+	        key: 'periodicalData',
+	        get: function get() {
+
+	            return this.periodicalData;
 	        }
 	    }, {
 	        key: 'facebookPhotos',
@@ -22282,11 +22377,7 @@
 	        key: 'facebookFriends',
 	        get: function get() {
 
-	            if (!this.facebookFriendsData || !this.facebookFriendsData.friends) {
-	                return 0;
-	            }
-
-	            return this.facebookFriendsData.friends.summary.total_count;
+	            return this.totalFriends;
 	        }
 	    }]);
 
@@ -22673,9 +22764,13 @@
 
 	    render: function render() {
 	        return React.createElement(
-	            'button',
-	            { ref: 'loginButton', onClick: this.didClickFacebookLoginButton },
-	            'Log Into Facebook'
+	            'div',
+	            null,
+	            React.createElement(
+	                'button',
+	                { ref: 'loginButton', onClick: this.didClickFacebookLoginButton },
+	                'Log Into Facebook'
+	            )
 	        );
 	    }
 	});
@@ -22937,13 +23032,25 @@
 	        text: 'Likes vs Time of Posting'
 	    },
 	    xAxis: {
+	        type: 'datetime',
+	        tickInterval: 1.0 * 3600 * 1000,
+	        dateTimeLabelFormats: {
+	            hour: '%l %p'
+	        },
 	        title: {
 	            enabled: true,
 	            text: 'Time of Posting'
 	        },
-	        startOnTick: true,
-	        endOnTick: true,
-	        showLastLabel: true
+	        startOnTick: false,
+	        endOnTick: false,
+	        minPadding: 0,
+	        labels: {
+
+	            formatter: function formatter() {
+
+	                return ReactHighcharts.Highcharts.dateFormat('%l %p', this.value, false);
+	            }
+	        }
 	    },
 	    yAxis: {
 	        title: {
@@ -22970,13 +23077,14 @@
 	            },
 	            tooltip: {
 	                headerFormat: '<b>{series.name}</b><br>',
-	                pointFormat: '{point.x} likes, {point.y} '
+	                pointFormat: '{point.x:%l:%M %p}, {point.y} likes'
 	            }
 	        }
 	    },
 	    series: [{
+	        name: 'All-Time Posts',
 	        color: 'rgba(223, 83, 83, .5)',
-	        data: [[200, 51.6], [167.5, 59.0], [159.5, 49.2], [157.0, 63.0], [155.8, 53.6], [170.0, 59.0], [159.1, 47.6], [166.0, 69.8], [176.2, 66.8], [160.2, 75.2]]
+	        data: []
 	    }]
 	};
 
@@ -22986,6 +23094,7 @@
 
 	    render: function render() {
 
+	        config.series[0].data = this.props.seriesData;
 	        return React.createElement(ReactHighcharts, { config: config });
 	    }
 	});
@@ -23386,6 +23495,76 @@
 	f&&f.rules&&C(f.rules,function(f){this.matchResponsiveRule(f,a)},this)};D.prototype.matchResponsiveRule=function(f,v){var l=this.respRules,p=f.condition,d;d=p.callback||function(){return this.chartWidth<=h(p.maxWidth,Number.MAX_VALUE)&&this.chartHeight<=h(p.maxHeight,Number.MAX_VALUE)&&this.chartWidth>=h(p.minWidth,0)&&this.chartHeight>=h(p.minHeight,0)};void 0===f._id&&(f._id=a.uniqueKey());d=d.call(this);!l[f._id]&&d?f.chartOptions&&(l[f._id]=this.currentOptions(f.chartOptions),this.update(f.chartOptions,
 	v)):l[f._id]&&!d&&(this.update(l[f._id],v),delete l[f._id])};D.prototype.currentOptions=function(a){function h(a,d,c){var l,p;for(l in a)if(-1<G(l,["series","xAxis","yAxis"]))for(a[l]=f(a[l]),c[l]=[],p=0;p<a[l].length;p++)c[l][p]={},h(a[l][p],d[l][p],c[l][p]);else I(a[l])?(c[l]={},h(a[l],d[l]||{},c[l])):c[l]=d[l]||null}var l={};h(a,this.options,l);return l}})(L);return L});
 
+
+/***/ },
+/* 194 */
+/***/ function(module, exports, __webpack_require__) {
+
+	'use strict';
+
+	var React = __webpack_require__(1);
+	var ReactHighcharts = __webpack_require__(192);
+
+	var config = {
+
+	    title: {
+	        text: 'Likes Per YEAR/MONTH/WEEK/DAY',
+	        x: -20 //center
+	    },
+	    xAxis: {
+	        categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+	    },
+	    yAxis: {
+	        title: {
+	            text: 'Likes'
+	        },
+	        plotLines: [{
+	            value: 0,
+	            width: 1,
+	            color: '#808080'
+	        }]
+	    },
+	    legend: {
+	        layout: 'vertical',
+	        align: 'right',
+	        verticalAlign: 'middle',
+	        borderWidth: 0
+	    },
+	    series: [{
+	        name: 'Last 12 Months',
+	        data: [7.0, 6.9, 9.5, 14.5, 18.2, 21.5, 25.2, 26.5, 23.3, 18.3, 13.9, 9.6]
+	    }]
+	};
+
+	var PeriodicalLine = React.createClass({
+	    displayName: 'PeriodicalLine',
+
+
+	    render: function render() {
+
+	        return React.createElement(ReactHighcharts, { config: config });
+	    }
+	});
+
+	module.exports = PeriodicalLine;
+
+/***/ },
+/* 195 */
+/***/ function(module, exports, __webpack_require__) {
+
+	'use strict';
+
+	var React = __webpack_require__(1);
+
+	var TopFriends = React.createClass({
+		displayName: 'TopFriends',
+
+
+		render: function render() {
+
+			return React.createElement('div', null);
+		}
+	});
 
 /***/ }
 /******/ ]);

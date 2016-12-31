@@ -23,6 +23,9 @@ class FacebookStore extends EventEmitter {
 
         //Decide how many months back to go
         this.periodicalData = [];
+
+        this.topThreeTotal = [];
+        this.topThreeAverage = [];
     }
 
     setFacebookAuthData(data) {
@@ -89,6 +92,57 @@ class FacebookStore extends EventEmitter {
         return this.totalPosts;
     }
 
+    calculateTopThreeTotal() {
+
+        for(var element in this.friendsLikes) {
+
+            if(this.topThreeTotal.length < 3) {
+
+                this.topThreeTotal.push(this.friendsLikes[element]);
+            } else if(this.topThreeTotal[2].likes < this.friendsLikes[element].likes) {
+
+                this.topThreeTotal[2] = this.friendsLikes[element];
+            }
+
+            this.topThreeTotal.sort(function(a, b) {
+                    return a.likes - b.likes;
+            });
+        }
+    }
+
+    calculateTopThreeAverage() {
+
+        for(var element in this.friendsLikes) {
+
+            if(this.topThreeAverage.length < 3) {
+
+                this.topThreeAverage.push(this.friendsLikes[element]);
+            } else if(this.topThreeAverage[2].likes/this.topThreeAverage[2].posts < this.friendsLikes[element].likes/this.friendsLikes[element].posts) {
+
+                this.topThreeAverage[2] = this.friendsLikes[element];
+            }
+
+            this.topThreeAverage.sort(function(a, b) {
+                    return a.likes/a.posts - b.likes/b.posts;
+            });
+        }
+    }
+
+    get topFriendsTotal() {
+
+        return this.topThreeTotal;
+    }
+
+    get topFriendsAverage() {
+
+        return this.topThreeAverage;
+    }
+
+    get periodicalLineData() {
+
+        return this.periodicalData;
+    }
+
     calculateTagLikes(currentPost, likesObj) {
 
         var tags = currentPost.with_tags;
@@ -96,16 +150,13 @@ class FacebookStore extends EventEmitter {
 
             for(var j = 0; j < tags.data.length; j ++) {
 
-                if(tags.data[j].name.localeCompare("Katie Lewis")==0) {
-                        console.log(currentPost.created_time);
-                }
-                
                 if(this.friendsLikes[tags.data[j].name]) {
 
                     this.friendsLikes[tags.data[j].name].posts++;
                     this.friendsLikes[tags.data[j].name].likes+=likesObj.summary.total_count;
                 } else {
                     this.friendsLikes[tags.data[j].name] = {
+                        name: tags.data[j].name,
                         posts: 1,
                         likes: likesObj.summary.total_count
                     }
@@ -148,8 +199,6 @@ class FacebookStore extends EventEmitter {
         if (data) {
             this.facebookPostsData = data 
 
-            var series = [];
-            var totalLikes = 0;
             for(var i  = 0; i < data.feed.data.length; i ++) {
 
                 var currentPost = data.feed.data[i];
@@ -168,6 +217,10 @@ class FacebookStore extends EventEmitter {
                 this.calculateTagLikes(currentPost, likesObj);
                       
             }
+
+            this.calculateTopThreeAverage();
+            this.calculateTopThreeTotal();
+
             this.totalPosts = data.feed.data.length;
 
             console.log(this.periodicalData);

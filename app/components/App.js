@@ -2,6 +2,7 @@ var React = require('react');
 
 var TimePlot = require('./TimePlot');
 var PeriodicalLine = require('./PeriodicalLine');
+var TopFriends = require('./TopFriends');
 
 import FacebookActionCreators from '../actions/FacebookActionCreators';
 import FacebookStore from '../stores/FacebookStore';
@@ -53,11 +54,10 @@ var App = React.createClass({
 
 			return (
 				<div>
-          {!this.state.loggedIn ? <Login /> : null}
-          {this.state.loggedIn ? <Dashboard userId={this.state.userId} 
+          {!this.state.loggedIn ? <Login /> : <Dashboard userId={this.state.userId} 
                                             totalLikes={this.state.totalFacebookPostLikes}
                                             totalPosts={this.state.totalFacebookPosts}
-                                            totalFriends={this.state.totalFacebookFriends} /> : null}
+                                            totalFriends={this.state.totalFacebookFriends} />}
           <p>Facebook logged in: {this.state.loggedIn ? 'true' : 'false'}</p>
 
           {this.state.loggedIn ? <p>User ID is: {this.state.userId}</p> : null}
@@ -69,6 +69,7 @@ var App = React.createClass({
           <TimePlot 
                 seriesData={this.state.timePlotSeriesData} />
           <PeriodicalLine />
+          <TopFriends />
         </div>
 			);
 	 }

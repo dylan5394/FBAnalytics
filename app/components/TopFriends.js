@@ -7,6 +7,7 @@ var TopFriends = React.createClass({
 		return (
 
 			<div>
+				
 			</div>
 		);
 	}

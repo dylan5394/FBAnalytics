@@ -9,7 +9,9 @@ var FacebookLogin = React.createClass({
 
     render: function () {
         return (
-            <button ref="loginButton" onClick={this.didClickFacebookLoginButton}>Log Into Facebook</button>
+        	<div>
+            	<button ref="loginButton" onClick={this.didClickFacebookLoginButton}>Log Into Facebook</button>
+  			</div>
         );
     }
 });

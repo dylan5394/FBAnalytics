@@ -4,7 +4,7 @@ var ReactHighcharts = require('react-highcharts');
 var config = {
 
 	title: {
-            text: 'Likes Per YEAR/MONTH/WEEK/DAY',
+            text: 'Likes Per Month',
             x: -20 //center
         },
     xAxis: {

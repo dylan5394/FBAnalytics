@@ -71,7 +71,6 @@ var config = {
 var TimePlot = React.createClass({
 
 	render: function () {
-
         config.series[0].data = this.props.seriesData;
 		return (
 			<ReactHighcharts config={config}></ReactHighcharts>

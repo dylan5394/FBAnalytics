@@ -94,6 +94,7 @@ class FacebookStore extends EventEmitter {
 
     calculateTopThreeTotal() {
 
+        //TODO: Verify that this is working
         for(var element in this.friendsLikes) {
 
             if(this.topThreeTotal.length < 3) {
@@ -108,10 +109,13 @@ class FacebookStore extends EventEmitter {
                     return a.likes - b.likes;
             });
         }
+
+        console.log(this.topThreeTotal);
     }
 
     calculateTopThreeAverage() {
 
+        //TODO: Verify that this is working
         for(var element in this.friendsLikes) {
 
             if(this.topThreeAverage.length < 3) {
@@ -126,6 +130,8 @@ class FacebookStore extends EventEmitter {
                     return a.likes/a.posts - b.likes/b.posts;
             });
         }
+
+        console.log(this.topThreeAverage);
     }
 
     get topFriendsTotal() {
@@ -185,17 +191,28 @@ class FacebookStore extends EventEmitter {
     }
 
     extractPeriodicalData(date, likesObj) {
-
+        console.log(date);
         this.periodicalData.push({
-
             date:date,
             likes:likesObj.summary.total_count
         });
     }
 
+    get monthlyData() {
+        var currentDate = new Date();
+        var months = new Array(12);
+        for(var i = 0; i < periodicalData.length; i ++) {
+            var year = periodicalData[i].date.split("-")[0];
+            var month = periodicalData[i].date.split("-")[1];
+            var index = currentDate.getMonth() - month + (year - currentDate.getFullYear()) * 12;
+
+            if(index <= 11)
+                months[index] += periodicalData.likes;
+        }
+    }
+
     setFacebookPostsData(type, data) {
         this.facebookPostsStatus = type;
-
         if (data) {
             this.facebookPostsData = data 
 
@@ -223,7 +240,7 @@ class FacebookStore extends EventEmitter {
 
             this.totalPosts = data.feed.data.length;
 
-            console.log(this.periodicalData);
+            console.log("Periodical data:" + this.periodicalData);
             console.log(this.friendsLikes);
         } else {
             this.facebookPostsData = {};
